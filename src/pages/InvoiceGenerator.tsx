@@ -114,43 +114,341 @@ const InvoiceDetailsForm: React.FC<{
   details: InvoiceDetails;
   onChange: (details: InvoiceDetails) => void;
 }> = ({ details, onChange }) => {
+  const [touchedFields, setTouchedFields] = useState<Array<keyof InvoiceDetails>>([]);
+
   const handleChange = (field: keyof InvoiceDetails) => (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
     onChange({ ...details, [field]: e.target.value });
+    if (!touchedFields.includes(field)) {
+      setTouchedFields([...touchedFields, field]);
+    }
+  };
+
+  const handleBlur = (field: keyof InvoiceDetails) => () => {
+    if (!touchedFields.includes(field)) {
+      setTouchedFields([...touchedFields, field]);
+    }
+  };
+
+  const isFieldInvalid = (field: keyof InvoiceDetails) => {
+    if (!touchedFields.includes(field)) return false;
+    return !details[field];
+  };
+
+  const getFieldClassName = (field: keyof InvoiceDetails) => {
+    return `mt-1 block w-full rounded-md shadow-sm focus:ring-primary ${
+      isFieldInvalid(field)
+        ? 'border-red-500 focus:border-red-500'
+        : 'border-gray-300 focus:border-primary'
+    }`;
   };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
       <div>
-        <label className="block text-sm font-medium text-gray-700">Invoice Number</label>
+        <label className="block text-sm font-medium text-gray-700">
+          Invoice Number <span className="text-red-500">*</span>
+        </label>
         <input
           type="text"
+          required
           value={details.invoiceNumber}
           onChange={handleChange('invoiceNumber')}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+          onBlur={handleBlur('invoiceNumber')}
+          className={getFieldClassName('invoiceNumber')}
           placeholder="Enter invoice number"
         />
+        {isFieldInvalid('invoiceNumber') && (
+          <p className="mt-1 text-xs text-red-500">Invoice number is required</p>
+        )}
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700">Invoice Date</label>
+        <label className="block text-sm font-medium text-gray-700">
+          Invoice Date <span className="text-red-500">*</span>
+        </label>
         <input
           type="date"
+          required
           value={details.invoiceDate}
           onChange={handleChange('invoiceDate')}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+          onBlur={handleBlur('invoiceDate')}
+          className={getFieldClassName('invoiceDate')}
         />
+        {isFieldInvalid('invoiceDate') && (
+          <p className="mt-1 text-xs text-red-500">Invoice date is required</p>
+        )}
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700">Due Date</label>
+        <label className="block text-sm font-medium text-gray-700">
+          Due Date <span className="text-red-500">*</span>
+        </label>
         <input
           type="date"
+          required
           value={details.dueDate}
           onChange={handleChange('dueDate')}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+          onBlur={handleBlur('dueDate')}
+          className={getFieldClassName('dueDate')}
         />
+        {isFieldInvalid('dueDate') && (
+          <p className="mt-1 text-xs text-red-500">Due date is required</p>
+        )}
       </div>
     </div>
+  );
+};
+
+const emptyLineItem: LineItem = {
+  shippedDate: '',
+  awbNumber: '',
+  origin: '',
+  destination: '',
+  actWeight: '' as any,
+  volWeight: '' as any,
+  otherCharges: '' as any,
+  total: '' as any,
+};
+
+const LineItemForm: React.FC<{
+  onAdd: (item: LineItem) => void;
+}> = ({ onAdd }) => {
+  const [newItem, setNewItem] = useState<LineItem>(emptyLineItem);
+  const [touchedFields, setTouchedFields] = useState<Array<keyof LineItem>>([]);
+
+  const handleChange = (field: keyof LineItem) => (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = ['actWeight', 'volWeight', 'otherCharges', 'total'].includes(field)
+      ? e.target.value === '' ? '' : Number(e.target.value)
+      : e.target.value;
+    setNewItem({ ...newItem, [field]: value });
+    if (!touchedFields.includes(field)) {
+      setTouchedFields([...touchedFields, field]);
+    }
+  };
+
+  const handleBlur = (field: keyof LineItem) => () => {
+    if (!touchedFields.includes(field)) {
+      setTouchedFields([...touchedFields, field]);
+    }
+  };
+
+  const isFieldInvalid = (field: keyof LineItem) => {
+    if (!touchedFields.includes(field)) return false;
+    
+    const value = newItem[field];
+    if (value === '') return true;
+    
+    if (['actWeight', 'volWeight', 'total'].includes(field)) {
+      return typeof value === 'number' && value <= 0;
+    }
+    if (field === 'otherCharges') {
+      return typeof value === 'number' && value < 0;
+    }
+    return !value;
+  };
+
+  const getFieldClassName = (field: keyof LineItem) => {
+    return `mt-1 block w-full rounded-md shadow-sm focus:ring-primary ${
+      isFieldInvalid(field)
+        ? 'border-red-500 focus:border-red-500'
+        : 'border-gray-300 focus:border-primary'
+    }`;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Mark all fields as touched when submitting
+    const allFields = Object.keys(newItem) as (keyof LineItem)[];
+    setTouchedFields(allFields);
+
+    // Check if any required fields are empty
+    const emptyFields = allFields.filter(field => {
+      if (['actWeight', 'volWeight', 'otherCharges', 'total'].includes(field)) {
+        const value = newItem[field];
+        return value === '' || (typeof value === 'number' && value <= 0);
+      }
+      return !newItem[field];
+    });
+
+    if (emptyFields.length > 0) {
+      const fieldNames = emptyFields.map(field => 
+        field.replace(/([A-Z])/g, ' $1').toLowerCase()
+      ).join(', ');
+      toast.error(`Please fill in all required fields: ${fieldNames}`);
+      return;
+    }
+
+    // Convert empty strings to 0 for numeric fields before submitting
+    const submittedItem = {
+      ...newItem,
+      actWeight: typeof newItem.actWeight === 'string' ? 0 : newItem.actWeight,
+      volWeight: typeof newItem.volWeight === 'string' ? 0 : newItem.volWeight,
+      otherCharges: typeof newItem.otherCharges === 'string' ? 0 : newItem.otherCharges,
+      total: typeof newItem.total === 'string' ? 0 : newItem.total,
+    };
+
+    onAdd(submittedItem);
+    setNewItem(emptyLineItem);
+    setTouchedFields([]);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="mb-6 p-4 bg-gray-50 rounded-lg">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Shipped Date <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="date"
+            required
+            value={newItem.shippedDate}
+            onChange={handleChange('shippedDate')}
+            onBlur={handleBlur('shippedDate')}
+            className={getFieldClassName('shippedDate')}
+          />
+          {isFieldInvalid('shippedDate') && (
+            <p className="mt-1 text-xs text-red-500">This field is required</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            AWB Number <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            required
+            value={newItem.awbNumber}
+            onChange={handleChange('awbNumber')}
+            onBlur={handleBlur('awbNumber')}
+            className={getFieldClassName('awbNumber')}
+          />
+          {isFieldInvalid('awbNumber') && (
+            <p className="mt-1 text-xs text-red-500">This field is required</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Origin <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            required
+            value={newItem.origin}
+            onChange={handleChange('origin')}
+            onBlur={handleBlur('origin')}
+            className={getFieldClassName('origin')}
+          />
+          {isFieldInvalid('origin') && (
+            <p className="mt-1 text-xs text-red-500">This field is required</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Destination <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            required
+            value={newItem.destination}
+            onChange={handleChange('destination')}
+            onBlur={handleBlur('destination')}
+            className={getFieldClassName('destination')}
+          />
+          {isFieldInvalid('destination') && (
+            <p className="mt-1 text-xs text-red-500">This field is required</p>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Actual Weight <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            required
+            step="0.01"
+            min="0.01"
+            value={newItem.actWeight}
+            onChange={handleChange('actWeight')}
+            onBlur={handleBlur('actWeight')}
+            placeholder="0"
+            className={getFieldClassName('actWeight')}
+          />
+          {isFieldInvalid('actWeight') && (
+            <p className="mt-1 text-xs text-red-500">Must be greater than 0</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Vol Weight <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            required
+            step="0.01"
+            min="0.01"
+            value={newItem.volWeight}
+            onChange={handleChange('volWeight')}
+            onBlur={handleBlur('volWeight')}
+            placeholder="0"
+            className={getFieldClassName('volWeight')}
+          />
+          {isFieldInvalid('volWeight') && (
+            <p className="mt-1 text-xs text-red-500">Must be greater than 0</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Other Charges <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            required
+            step="0.01"
+            min="0"
+            value={newItem.otherCharges}
+            onChange={handleChange('otherCharges')}
+            onBlur={handleBlur('otherCharges')}
+            placeholder="0"
+            className={getFieldClassName('otherCharges')}
+          />
+          {isFieldInvalid('otherCharges') && (
+            <p className="mt-1 text-xs text-red-500">Must be 0 or greater</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Total <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            required
+            step="0.01"
+            min="0.01"
+            value={newItem.total}
+            onChange={handleChange('total')}
+            onBlur={handleBlur('total')}
+            placeholder="0"
+            className={getFieldClassName('total')}
+          />
+          {isFieldInvalid('total') && (
+            <p className="mt-1 text-xs text-red-500">Must be greater than 0</p>
+          )}
+        </div>
+      </div>
+      <div className="mt-4 flex justify-end">
+        <button
+          type="submit"
+          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-secondary"
+        >
+          Add Line Item
+        </button>
+      </div>
+    </form>
   );
 };
 
@@ -272,18 +570,23 @@ const InvoiceGenerator: React.FC = () => {
     }
   };
 
+  const handleAddLineItem = (item: LineItem) => {
+    setLineItems([...lineItems, item]);
+    toast.success('Line item added successfully');
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
       <div className="max-w-5xl mx-auto bg-white rounded-lg shadow-md p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">Generate Invoice</h2>
-          <button
+          {/*<button
             onClick={handleDownloadSample}
             className="flex items-center px-4 py-2 text-sm font-medium text-primary hover:text-secondary"
           >
             <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
             Download Sample Excel
-          </button>
+          </button>*/}
         </div>
 
         {/* Invoice Details Form */}
@@ -297,18 +600,43 @@ const InvoiceGenerator: React.FC = () => {
         
         {/* File Upload Section */}
         <div className="mb-8">
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-            <DocumentArrowUpIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <label className="block">
-              <span className="sr-only">Choose Excel file</span>
-              <input
-                type="file"
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-secondary cursor-pointer"
-                accept=".xlsx,.xls"
-                onChange={handleFileUpload}
-              />
-            </label>
-            <p className="text-sm text-gray-500 mt-2">Upload Excel file with line item details</p>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Line Items</h3>
+            <div className="flex space-x-4">
+              <button
+                onClick={handleDownloadSample}
+                className="flex items-center px-4 py-2 text-sm font-medium text-primary hover:text-secondary"
+              >
+                <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+                Download Sample Excel
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {/* Manual Entry Form */}
+            <div>
+              <h4 className="text-md font-medium text-gray-700 mb-2">Add Line Item Manually</h4>
+              <LineItemForm onAdd={handleAddLineItem} />
+            </div>
+
+            {/* Excel Upload */}
+            <div>
+              <h4 className="text-md font-medium text-gray-700 mb-2">Or Upload Excel File</h4>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <DocumentArrowUpIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                <label className="block">
+                  <span className="sr-only">Choose Excel file</span>
+                  <input
+                    type="file"
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-secondary cursor-pointer"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileUpload}
+                  />
+                </label>
+                <p className="text-sm text-gray-500 mt-2">Upload Excel file with line item details</p>
+              </div>
+            </div>
           </div>
         </div>
 

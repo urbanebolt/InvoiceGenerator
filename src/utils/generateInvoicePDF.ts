@@ -30,7 +30,7 @@ export const generateInvoicePDF = async ({ lineItems, cgst, sgst, billTo, shipTo
   // Add logo if available (left side)
   if (logoBase64) {
     try {
-      doc.addImage(logoBase64, 'JPEG', 10, 25, 100, 20); // Adjusted position and size
+      doc.addImage(logoBase64, 'JPEG', 5, 25, 100, 20); // Adjusted position and size
     } catch (error) {
       console.error('Error adding logo to PDF:', error);
     }
