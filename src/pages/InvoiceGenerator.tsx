@@ -204,6 +204,7 @@ const emptyLineItem: LineItem = {
   awbNumber: '',
   origin: '',
   destination: '',
+  shipmentType: '',
   actWeight: '' as any,
   volWeight: '' as any,
   otherCharges: '' as any,
@@ -217,11 +218,11 @@ const LineItemForm: React.FC<{
   const [touchedFields, setTouchedFields] = useState<Array<keyof LineItem>>([]);
 
   const handleChange = (field: keyof LineItem) => (
-    e: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const value = ['actWeight', 'volWeight', 'otherCharges', 'total'].includes(field)
-      ? e.target.value === '' ? '' : Number(e.target.value)
-      : e.target.value;
+      ? event.target.value === '' ? '' : Number(event.target.value)
+      : event.target.value;
     setNewItem({ ...newItem, [field]: value });
     if (!touchedFields.includes(field)) {
       setTouchedFields([...touchedFields, field]);
@@ -238,13 +239,15 @@ const LineItemForm: React.FC<{
     if (!touchedFields.includes(field)) return false;
     
     const value = newItem[field];
-    if (value === '') return true;
     
     if (['actWeight', 'volWeight', 'total'].includes(field)) {
-      return typeof value === 'number' && value <= 0;
+      return value === '' || (typeof value === 'number' && value <= 0);
     }
     if (field === 'otherCharges') {
-      return typeof value === 'number' && value < 0;
+      // Allow both empty string and 0, only validate for negative numbers
+      if (typeof value === 'string') return false;
+      if (typeof value === 'number') return value < 0;
+      return false;
     }
     return !value;
   };
@@ -265,9 +268,16 @@ const LineItemForm: React.FC<{
 
     // Check if any required fields are empty
     const emptyFields = allFields.filter(field => {
-      if (['actWeight', 'volWeight', 'otherCharges', 'total'].includes(field)) {
+      if (['actWeight', 'volWeight', 'total'].includes(field)) {
         const value = newItem[field];
         return value === '' || (typeof value === 'number' && value <= 0);
+      }
+      if (field === 'otherCharges') {
+        const value = newItem[field];
+        // Allow both empty string and 0, only validate for negative numbers
+        if (typeof value === 'string') return false;
+        if (typeof value === 'number') return value < 0;
+        return false;
       }
       return !newItem[field];
     });
@@ -362,7 +372,26 @@ const LineItemForm: React.FC<{
           )}
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Shipment Type <span className="text-red-500">*</span>
+          </label>
+          <select
+            required
+            value={newItem.shipmentType}
+            onChange={handleChange('shipmentType')}
+            onBlur={handleBlur('shipmentType')}
+            className={getFieldClassName('shipmentType')}
+          >
+            <option value="">Select Type</option>
+            <option value="Prepaid">Prepaid</option>
+            <option value="COD">COD</option>
+          </select>
+          {isFieldInvalid('shipmentType') && (
+            <p className="mt-1 text-xs text-red-500">Please select a shipment type</p>
+          )}
+        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
             Actual Weight <span className="text-red-500">*</span>
@@ -454,10 +483,9 @@ const LineItemForm: React.FC<{
 
 const InvoiceGenerator: React.FC = () => {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
-  const [cgst, setCgst] = useState<number>(0);
-  const [sgst, setSgst] = useState<number>(0);
+  const [cgst, setCgst] = useState<string>('');
+  const [sgst, setSgst] = useState<string>('');
   const [billTo, setBillTo] = useState<Address>(emptyAddress);
-  const [shipTo, setShipTo] = useState<Address>(emptyAddress);
   const [invoiceDetails, setInvoiceDetails] = useState<InvoiceDetails>({
     invoiceNumber: '',
     invoiceDate: new Date().toISOString().split('T')[0],
@@ -476,6 +504,7 @@ const InvoiceGenerator: React.FC = () => {
         awbNumber: item['Awb Number'] || '',
         origin: item['Origin'] || '',
         destination: item['Destination'] || '',
+        shipmentType: item['Shipment Type'] || '',
         actWeight: Number(item['Act Weight']) || 0,
         volWeight: Number(item['Vol Weight']) || 0,
         otherCharges: Number(item['Other Charges']) || 0,
@@ -510,15 +539,14 @@ const InvoiceGenerator: React.FC = () => {
 
     const requiredFields: (keyof Address)[] = ['businessName', 'addressLine1', 'city', 'state', 'pincode'];
     const isBillToValid = requiredFields.every(field => billTo[field]);
-    const isShipToValid = requiredFields.every(field => shipTo[field]);
 
-    if (!isBillToValid || !isShipToValid) {
-      toast.error('Please fill in all required address fields');
+    if (!isBillToValid) {
+      toast.error('Please fill in all required billing address fields');
       return false;
     }
 
     if (lineItems.length === 0) {
-      toast.error('Please upload an Excel file with line items first');
+      toast.error('Please add at least one line item');
       return false;
     }
 
@@ -534,10 +562,9 @@ const InvoiceGenerator: React.FC = () => {
     try {
       await generateInvoicePDF({
         lineItems,
-        cgst,
-        sgst,
+        cgst: Number(cgst) || 0,
+        sgst: Number(sgst) || 0,
         billTo,
-        shipTo,
         invoiceDetails,
       });
       toast.success('Invoice PDF generated successfully');
@@ -549,10 +576,9 @@ const InvoiceGenerator: React.FC = () => {
 
   const handleClearAll = () => {
     setLineItems([]);
-    setCgst(0);
-    setSgst(0);
+    setCgst('');
+    setSgst('');
     setBillTo(emptyAddress);
-    setShipTo(emptyAddress);
     setInvoiceDetails({
       invoiceNumber: '',
       invoiceDate: new Date().toISOString().split('T')[0],
@@ -593,9 +619,8 @@ const InvoiceGenerator: React.FC = () => {
         <InvoiceDetailsForm details={invoiceDetails} onChange={setInvoiceDetails} />
 
         {/* Address Forms */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+        <div className="mb-8">
           <AddressForm title="Bill To" address={billTo} onChange={setBillTo} />
-          <AddressForm title="Ship To" address={shipTo} onChange={setShipTo} />
         </div>
         
         {/* File Upload Section */}
@@ -650,6 +675,7 @@ const InvoiceGenerator: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AWB</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Origin</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destination</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Act. Weight</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vol. Weight</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Other Charges</th>
@@ -663,6 +689,7 @@ const InvoiceGenerator: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.awbNumber}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.origin}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.destination}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.shipmentType}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.actWeight}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.volWeight}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.otherCharges}</td>
@@ -681,10 +708,11 @@ const InvoiceGenerator: React.FC = () => {
             <input
               type="number"
               step="0.01"
+              min="0"
               value={cgst}
-              onChange={(e) => setCgst(Number(e.target.value))}
+              onChange={(e) => setCgst(e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-              placeholder="Enter CGST percentage"
+              placeholder="0"
             />
           </div>
           <div>
@@ -692,10 +720,11 @@ const InvoiceGenerator: React.FC = () => {
             <input
               type="number"
               step="0.01"
+              min="0"
               value={sgst}
-              onChange={(e) => setSgst(Number(e.target.value))}
+              onChange={(e) => setSgst(e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-              placeholder="Enter SGST percentage"
+              placeholder="0"
             />
           </div>
         </div>

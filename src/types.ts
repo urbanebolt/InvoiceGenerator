@@ -13,6 +13,7 @@ export interface LineItem {
   awbNumber: string;
   origin: string;
   destination: string;
+  shipmentType: 'Prepaid' | 'COD' | '';
   actWeight: number;
   volWeight: number;
   otherCharges: number;
@@ -27,7 +28,6 @@ export interface InvoiceDetails {
 
 export interface InvoiceData {
   billTo: Address;
-  shipTo: Address;
   lineItems: LineItem[];
   cgst: number;
   sgst: number;
