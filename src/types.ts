@@ -17,6 +17,7 @@ export interface LineItem {
   actWeight: number;
   volWeight: number;
   otherCharges: number;
+  freightCharges: number;
   total: number;
 }
 
@@ -29,6 +30,7 @@ export interface InvoiceDetails {
 export interface InvoiceData {
   billTo: Address;
   lineItems: LineItem[];
+  fuelSurcharge: number;
   cgst: number;
   sgst: number;
   invoiceDetails: InvoiceDetails;

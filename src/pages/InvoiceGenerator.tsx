@@ -207,6 +207,7 @@ const emptyLineItem: LineItem = {
   shipmentType: '',
   actWeight: '' as any,
   volWeight: '' as any,
+  freightCharges: '' as any,
   otherCharges: '' as any,
   total: '' as any,
 };
@@ -431,12 +432,25 @@ const LineItemForm: React.FC<{
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Other Charges <span className="text-red-500">*</span>
-          </label>
+          <label className="block text-sm font-medium text-gray-700">Freight Charges</label>
           <input
             type="number"
-            required
+            step="0.01"
+            min="0"
+            value={newItem.freightCharges}
+            onChange={handleChange('freightCharges')}
+            onBlur={handleBlur('freightCharges')}
+            placeholder="0"
+            className={getFieldClassName('freightCharges')}
+          />
+          {isFieldInvalid('freightCharges') && (
+            <p className="mt-1 text-xs text-red-500">Must be 0 or greater</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Other Charges</label>
+          <input
+            type="number"
             step="0.01"
             min="0"
             value={newItem.otherCharges}
@@ -485,6 +499,7 @@ const InvoiceGenerator: React.FC = () => {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [cgst, setCgst] = useState<string>('');
   const [sgst, setSgst] = useState<string>('');
+  const [fuelSurcharge, setFuelSurcharge] = useState<string>('');
   const [billTo, setBillTo] = useState<Address>(emptyAddress);
   const [invoiceDetails, setInvoiceDetails] = useState<InvoiceDetails>({
     invoiceNumber: '',
@@ -500,15 +515,16 @@ const InvoiceGenerator: React.FC = () => {
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
       const processedItems = jsonData.map((item: any) => ({
-        shippedDate: item['Shipped Date'] || '',
-        awbNumber: item['Awb Number'] || '',
-        origin: item['Origin'] || '',
-        destination: item['Destination'] || '',
-        shipmentType: item['Shipment Type'] || '',
-        actWeight: Number(item['Act Weight']) || 0,
-        volWeight: Number(item['Vol Weight']) || 0,
+        shippedDate: item['Shipped Date*'] || '',
+        awbNumber: item['Awb Number*'] || '',
+        origin: item['Origin*'] || '',
+        destination: item['Destination*'] || '',
+        shipmentType: item['Shipment Type*'] || '',
+        actWeight: Number(item['Act Weight*']) || 0,
+        volWeight: Number(item['Vol Weight*']) || 0,
+        freightCharges: Number(item['Freight Charges']) || 0,
         otherCharges: Number(item['Other Charges']) || 0,
-        total: Number(item['Total']) || 0,
+        total: Number(item['Total*']) || 0,
       }));
 
       setLineItems(processedItems);
@@ -562,6 +578,7 @@ const InvoiceGenerator: React.FC = () => {
     try {
       await generateInvoicePDF({
         lineItems,
+        fuelSurcharge: Number(fuelSurcharge) || 0,
         cgst: Number(cgst) || 0,
         sgst: Number(sgst) || 0,
         billTo,
@@ -578,6 +595,7 @@ const InvoiceGenerator: React.FC = () => {
     setLineItems([]);
     setCgst('');
     setSgst('');
+    setFuelSurcharge('');
     setBillTo(emptyAddress);
     setInvoiceDetails({
       invoiceNumber: '',
@@ -678,7 +696,8 @@ const InvoiceGenerator: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Act. Weight</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vol. Weight</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Other Charges</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Freight</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Other</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                 </tr>
               </thead>
@@ -692,6 +711,7 @@ const InvoiceGenerator: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.shipmentType}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.actWeight}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.volWeight}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.freightCharges}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.otherCharges}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
                   </tr>
@@ -702,7 +722,19 @@ const InvoiceGenerator: React.FC = () => {
         )}
 
         {/* Tax Information */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Fuel Surcharge (%)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={fuelSurcharge}
+              onChange={(e) => setFuelSurcharge(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+              placeholder="0"
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">CGST (%)</label>
             <input

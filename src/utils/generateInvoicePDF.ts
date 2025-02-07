@@ -16,7 +16,7 @@ const initializeLogo = async () => {
   }
 };
 
-export const generateInvoicePDF = async ({ lineItems, cgst, sgst, billTo, invoiceDetails }: InvoiceData) => {
+export const generateInvoicePDF = async ({ lineItems, fuelSurcharge, cgst, sgst, billTo, invoiceDetails }: InvoiceData) => {
   // Initialize logo if not already loaded
   await initializeLogo();
   
@@ -124,17 +124,20 @@ export const generateInvoicePDF = async ({ lineItems, cgst, sgst, billTo, invoic
   // Get the maximum Y position after all the header content
   const maxYPos = (billTo.gstin ? 147 : 142) + hasAddressLine2 + 5;
   
-  // Calculate totals
-  const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
-  const cgstAmount = (subtotal * cgst) / 100;
-  const sgstAmount = (subtotal * sgst) / 100;
-  const grandTotal = subtotal + cgstAmount + sgstAmount;
-
   // Format numbers with proper spacing
-  const formatNumber = (num: number) => {
-    return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  const formatNumber = (num: number | string) => {
+    const value = typeof num === 'string' ? parseFloat(num) : num;
+    if (isNaN(value)) return '0.00';
+    return value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
   };
   
+  // Calculate totals
+  const subtotal = lineItems.reduce((sum, item) => sum + Number(item.total), 0);
+  const fuelSurchargeAmount = (subtotal * Number(fuelSurcharge)) / 100;
+  const cgstAmount = (subtotal * Number(cgst)) / 100;
+  const sgstAmount = (subtotal * Number(sgst)) / 100;
+  const grandTotal = subtotal + fuelSurchargeAmount + cgstAmount + sgstAmount;
+
   // Add table with line items - modern styling
   autoTable(doc, {
     startY: maxYPos,
@@ -146,7 +149,8 @@ export const generateInvoicePDF = async ({ lineItems, cgst, sgst, billTo, invoic
       { content: 'Type', styles: { halign: 'left' } },
       { content: 'Act. Weight', styles: { halign: 'right' } },
       { content: 'Vol. Weight', styles: { halign: 'right' } },
-      { content: 'Other Charges', styles: { halign: 'right' } },
+      { content: 'Freight', styles: { halign: 'right' } },
+      { content: 'Other', styles: { halign: 'right' } },
       { content: 'Amount', styles: { halign: 'right' } }
     ]],
     body: lineItems.map(item => [
@@ -157,30 +161,35 @@ export const generateInvoicePDF = async ({ lineItems, cgst, sgst, billTo, invoic
       { content: item.shipmentType, styles: { halign: 'left' } },
       { content: formatNumber(item.actWeight), styles: { halign: 'right' } },
       { content: formatNumber(item.volWeight), styles: { halign: 'right' } },
+      { content: formatNumber(item.freightCharges), styles: { halign: 'right' } },
       { content: formatNumber(item.otherCharges), styles: { halign: 'right' } },
       { content: formatNumber(item.total), styles: { halign: 'right' } }
     ]),
     foot: [
       [
-        { content: 'Subtotal:', colSpan: 8, styles: { halign: 'right', fontStyle: 'bold' } },
+        { content: 'Subtotal:', colSpan: 9, styles: { halign: 'right', fontStyle: 'bold' } },
         { content: formatNumber(subtotal), styles: { halign: 'right', fontStyle: 'bold' } }
       ],
       [
-        { content: `CGST (${cgst.toFixed(3)}%):`, colSpan: 8, styles: { halign: 'right' } },
+        { content: `Fuel Surcharge (${fuelSurcharge.toFixed(3)}%):`, colSpan: 9, styles: { halign: 'right' } },
+        { content: formatNumber(fuelSurchargeAmount), styles: { halign: 'right' } }
+      ],
+      [
+        { content: `CGST (${cgst.toFixed(3)}%):`, colSpan: 9, styles: { halign: 'right' } },
         { content: formatNumber(cgstAmount), styles: { halign: 'right' } }
       ],
       [
-        { content: `SGST (${sgst.toFixed(3)}%):`, colSpan: 8, styles: { halign: 'right' } },
+        { content: `SGST (${sgst.toFixed(3)}%):`, colSpan: 9, styles: { halign: 'right' } },
         { content: formatNumber(sgstAmount), styles: { halign: 'right' } }
       ],
       [
-        { content: 'Grand Total:', colSpan: 8, styles: { halign: 'right', fontStyle: 'bold' } },
+        { content: 'Grand Total:', colSpan: 9, styles: { halign: 'right', fontStyle: 'bold' } },
         { content: formatNumber(grandTotal), styles: { halign: 'right', fontStyle: 'bold' } }
       ]
     ],
     theme: 'plain',
     styles: {
-      fontSize: 7.5,  // Slightly smaller font
+      fontSize: 7.5,
       textColor: colors.text as [number, number, number],
       lineColor: colors.accent as [number, number, number],
     },
@@ -190,33 +199,34 @@ export const generateInvoicePDF = async ({ lineItems, cgst, sgst, billTo, invoic
       fontSize: 7.5,
       fontStyle: 'bold',
       lineWidth: 0,
-      cellPadding: { top: 3, right: 2, bottom: 3, left: 2 },  // Reduced padding
+      cellPadding: { top: 3, right: 2, bottom: 3, left: 2 },
     },
     bodyStyles: {
       fontSize: 7.5,
       lineColor: colors.accent as [number, number, number],
       lineWidth: 0.1,
-      cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },  // Reduced padding
+      cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },
     },
     footStyles: {
       fontSize: 7.5,
       fillColor: colors.accent as [number, number, number],
       textColor: colors.text as [number, number, number],
       lineWidth: 0,
-      cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },  // Reduced padding
+      cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },
     },
     columnStyles: {
       0: { cellWidth: 18 },  // Date
       1: { cellWidth: 22 },  // AWB
-      2: { cellWidth: 18 },  // Origin
-      3: { cellWidth: 18 },  // Destination
+      2: { cellWidth: 15 },  // Origin
+      3: { cellWidth: 15 },  // Destination
       4: { cellWidth: 15 },  // Type
-      5: { cellWidth: 18, halign: 'right' },  // Act Weight
-      6: { cellWidth: 18, halign: 'right' },  // Vol Weight
-      7: { cellWidth: 18, halign: 'right' },  // Other Charges
-      8: { cellWidth: 22, halign: 'right' },  // Amount
+      5: { cellWidth: 15, halign: 'right' },  // Act Weight
+      6: { cellWidth: 15, halign: 'right' },  // Vol Weight
+      7: { cellWidth: 15, halign: 'right' },  // Freight
+      8: { cellWidth: 15, halign: 'right' },  // Other
+      9: { cellWidth: 22, halign: 'right' },  // Amount
     },
-    margin: { left: 15, right: 15, top: 10, bottom: 15 },  // Added top and bottom margins
+    margin: { left: 15, right: 15, top: 10, bottom: 15 },
     tableWidth: 'auto',
   });
   

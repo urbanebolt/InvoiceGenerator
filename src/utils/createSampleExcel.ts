@@ -14,6 +14,7 @@ export const generateSampleExcel = () => {
       'Shipment Type*': 'Prepaid',
       'Act Weight*': 420.00,
       'Vol Weight*': 500.00,
+      'Freight Charges': 0.00,
       'Other Charges': 0.00,
       'Total*': 1024.00
     },
@@ -25,6 +26,7 @@ export const generateSampleExcel = () => {
       'Shipment Type*': 'COD',
       'Act Weight*': 320.00,
       'Vol Weight*': 400.00,
+      'Freight Charges': 0.00,
       'Other Charges': 50.00,
       'Total*': 950.00
     }
@@ -42,6 +44,7 @@ export const generateSampleExcel = () => {
     { wch: 15 },  // Shipment Type
     { wch: 12 },  // Act Weight
     { wch: 12 },  // Vol Weight
+    { wch: 15 },  // Freight Charges
     { wch: 15 },  // Other Charges
     { wch: 12 }   // Total
   ];
@@ -50,7 +53,7 @@ export const generateSampleExcel = () => {
   // Create styles object for the worksheet
   ws['!styles'] = {};
 
-  // Define which columns are required (all except Other Charges)
+  // Define which columns are required (all except Other Charges and Freight Charges)
   const requiredColumns = {
     'Shipped Date*': true,
     'Awb Number*': true,
@@ -59,12 +62,13 @@ export const generateSampleExcel = () => {
     'Shipment Type*': true,
     'Act Weight*': true,
     'Vol Weight*': true,
+    'Freight Charges': false,
     'Other Charges': false,
     'Total*': true
   };
 
   // Get the range of the headers (first row)
-  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:I1');
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:J1');
 
   // Apply styles to headers
   for (let C = range.s.c; C <= range.e.c; C++) {
