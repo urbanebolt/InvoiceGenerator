@@ -16,7 +16,7 @@ const initializeLogo = async () => {
   }
 };
 
-export const generateInvoicePDF = async ({ lineItems, fuelSurcharge, cgst, sgst, billTo, invoiceDetails }: InvoiceData) => {
+export const generateInvoicePDF = async ({ lineItems, fuelSurcharge, cgst, sgst, igst, billTo, invoiceDetails }: InvoiceData) => {
   // Initialize logo if not already loaded
   await initializeLogo();
   
@@ -136,7 +136,8 @@ export const generateInvoicePDF = async ({ lineItems, fuelSurcharge, cgst, sgst,
   const fuelSurchargeAmount = (subtotal * Number(fuelSurcharge)) / 100;
   const cgstAmount = (subtotal * Number(cgst)) / 100;
   const sgstAmount = (subtotal * Number(sgst)) / 100;
-  const grandTotal = subtotal + fuelSurchargeAmount + cgstAmount + sgstAmount;
+  const igstAmount = (subtotal * Number(igst)) / 100;
+  const grandTotal = subtotal + fuelSurchargeAmount + cgstAmount + sgstAmount + igstAmount;
 
   // Add table with line items - modern styling
   autoTable(doc, {
@@ -181,6 +182,10 @@ export const generateInvoicePDF = async ({ lineItems, fuelSurcharge, cgst, sgst,
       [
         { content: `SGST (${sgst.toFixed(3)}%):`, colSpan: 9, styles: { halign: 'right' } },
         { content: formatNumber(sgstAmount), styles: { halign: 'right' } }
+      ],
+      [
+        { content: `IGST (${igst.toFixed(3)}%):`, colSpan: 9, styles: { halign: 'right' } },
+        { content: formatNumber(igstAmount), styles: { halign: 'right' } }
       ],
       [
         { content: 'Grand Total:', colSpan: 9, styles: { halign: 'right', fontStyle: 'bold' } },
@@ -228,6 +233,18 @@ export const generateInvoicePDF = async ({ lineItems, fuelSurcharge, cgst, sgst,
     },
     margin: { left: 15, right: 15, top: 10, bottom: 15 },
     tableWidth: 'auto',
+    showFoot: 'lastPage', // Only show footer on the last page
+    didDrawPage: (data) => {
+      // Add footer to each page
+      addFooter(data.pageNumber);
+    },
+    willDrawCell: (data) => {
+      // Add a bottom border to the last row of each page except the last page
+      if (data.row.index === data.table.body.length - 1 && data.pageNumber !== data.pageCount) {
+        data.cell.styles.lineWidth = 0.1;
+        data.cell.styles.lineColor = colors.accent;
+      }
+    }
   });
   
   // Add terms and conditions with modern styling

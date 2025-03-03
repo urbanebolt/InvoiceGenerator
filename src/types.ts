@@ -33,5 +33,6 @@ export interface InvoiceData {
   fuelSurcharge: number;
   cgst: number;
   sgst: number;
+  igst: number;
   invoiceDetails: InvoiceDetails;
 } 

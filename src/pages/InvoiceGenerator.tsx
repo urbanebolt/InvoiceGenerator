@@ -499,6 +499,7 @@ const InvoiceGenerator: React.FC = () => {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [cgst, setCgst] = useState<string>('');
   const [sgst, setSgst] = useState<string>('');
+  const [igst, setIgst] = useState<string>('');
   const [fuelSurcharge, setFuelSurcharge] = useState<string>('');
   const [billTo, setBillTo] = useState<Address>(emptyAddress);
   const [invoiceDetails, setInvoiceDetails] = useState<InvoiceDetails>({
@@ -581,6 +582,7 @@ const InvoiceGenerator: React.FC = () => {
         fuelSurcharge: Number(fuelSurcharge) || 0,
         cgst: Number(cgst) || 0,
         sgst: Number(sgst) || 0,
+        igst: Number(igst) || 0,
         billTo,
         invoiceDetails,
       });
@@ -595,6 +597,7 @@ const InvoiceGenerator: React.FC = () => {
     setLineItems([]);
     setCgst('');
     setSgst('');
+    setIgst('');
     setFuelSurcharge('');
     setBillTo(emptyAddress);
     setInvoiceDetails({
@@ -755,6 +758,18 @@ const InvoiceGenerator: React.FC = () => {
               min="0"
               value={sgst}
               onChange={(e) => setSgst(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">IGST (%)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={igst}
+              onChange={(e) => setIgst(e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
               placeholder="0"
             />
